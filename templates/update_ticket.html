@@ -17,12 +17,52 @@
                 priority = 'High';
             } else if ((impact === 'Medium' && urgency === 'Medium') ||
                        (impact === 'Medium' && urgency === 'Low') ||
+                       (impact === 'Low' && urgency === 'Medium') ||
                        (impact === 'Low' && urgency === 'High') ||
                        (impact === 'High' && urgency === 'Low')) {
                 priority = 'Medium';
             }
             document.getElementById('priority').value = priority;
         }
+
+        function toggleResolutionFields() {
+            const status = document.getElementById('status').value;
+            const resolutionFields = document.getElementById('resolutionFields');
+            const resolutionCode = document.getElementById('resolution_code');
+            const resolutionNotes = document.getElementById('resolution_notes');
+
+            if (status === 'Resolved' || status === 'Closed') {
+                resolutionFields.style.display = 'block';
+                resolutionCode.required = true;
+                resolutionNotes.required = true;
+            } else {
+                resolutionFields.style.display = 'none';
+                resolutionCode.required = false;
+                resolutionNotes.required = false;
+
+            }
+        }
+
+        function updateAssignees() {
+            const assignmentGroup = document.getElementById('assignment_group').value;
+            fetch(`/api/assignees?group=${assignmentGroup}`)
+                .then(response => response.json())
+                .then(data => {
+                    const assigneeSelect = document.getElementById('assignee');
+                    assigneeSelect.innerHTML = '<option value="">-- Select Assignee --</option>';
+                    data.assignees.forEach(assignee => {
+                        assigneeSelect.innerHTML += `<option value="${assignee.username}">${assignee.username}</option>`;
+                    });
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            toggleResolutionFields(); // Ensure correct state on load
+            updateAssignees(); // Ensure assignees are updated on load
+             document.getElementById('priority').value = '{{ ticket.priority }}';
+            document.getElementById('resolution_code').value = '{{ ticket.resolution_code }}';
+            document.getElementById('resolution_notes').value = '{{ ticket.resolution_notes }}';
+        });
     </script>
 </head>
 <body class="bg-light">
@@ -31,83 +71,102 @@
         <form method="post" class="card shadow p-4">
             <div class="mb-3">
                 <label for="ticket_id" class="form-label">Ticket Number</label>
-                <input type="text" class="form-control" id="ticket_id" name="ticket_id" value="{{ ticket.id }}" readonly>
+                <input type="text" class="form-control" id="ticket_id" name="ticket_id" value="{{ 'INC' ~ ticket.id }}" readonly>
             </div>
 
             <div class="mb-3">
                 <label for="short_description" class="form-label">Short Description</label>
                 <input type="text" class="form-control" id="short_description" name="short_description" value="{{ ticket.short_description }}" required>
             </div>
+
             <div class="mb-3">
                 <label for="description" class="form-label">Description</label>
                 <textarea class="form-control" id="description" name="description">{{ ticket.description }}</textarea>
             </div>
+
             <div class="mb-3">
-                <label for="category" class="form-label">Category</label>
-                <select class="form-select" id="category" name="category">
-                    {% for option in categories %}
-                        <option value="{{ option }}" {% if option == ticket.category %}selected{% endif %}>{{ option }}</option>
-                    {% endfor %}
+                <label for="impact" class="form-label">Impact</label>
+                <select class="form-select" id="impact" name="impact" onchange="updatePriority()">
+                    <option value="Low" {% if ticket.impact == 'Low' %}selected{% endif %}>Low</option>
+                    <option value="Medium" {% if ticket.impact == 'Medium' %}selected{% endif %}>Medium</option>
+                    <option value="High" {% if ticket.impact == 'High' %}selected{% endif %}>High</option>
                 </select>
             </div>
+
             <div class="mb-3">
-                <label for="channel" class="form-label">Channel</label>
-                <select class="form-select" id="channel" name="channel">
-                    {% for option in channels %}
-                        <option value="{{ option }}" {% if option == ticket.channel %}selected{% endif %}>{{ option }}</option>
-                    {% endfor %}
+                <label for="urgency" class="form-label">Urgency</label>
+                <select class="form-select" id="urgency" name="urgency" onchange="updatePriority()">
+                   <option value="Low" {% if ticket.urgency == 'Low' %}selected{% endif %}>Low</option>
+                    <option value="Medium" {% if ticket.urgency == 'Medium' %}selected{% endif %}>Medium</option>
+                    <option value="High" {% if ticket.urgency == 'High' %}selected{% endif %}>High</option>
                 </select>
             </div>
+
             <div class="mb-3">
+                <label for="priority" class="form-label">Priority</label>
+                <input type="text" class="form-control" id="priority" name="priority" readonly>
+            </div>
+
+             <div class="mb-3">
                 <label for="requestor" class="form-label">Requestor</label>
                 <select class="form-select" id="requestor" name="requestor">
+                    <option value="">-- Select Requestor --</option>
                     {% for user in requestors %}
                         <option value="{{ user.username }}" {% if user.username == ticket.requestor %}selected{% endif %}>{{ user.username }}</option>
                     {% endfor %}
                 </select>
             </div>
+
+            <div class="mb-3">
+                <label for="assignment_group" class="form-label">Assignment Group</label>
+                <select class="form-select" id="assignment_group" name="assignment_group" onchange="updateAssignees()">
+                    <option value="">-- Select Assignment Group --</option>
+                    {% for group in groups %}
+                        <option value="{{ group.name }}" {% if group.name == ticket.assignment_group %}selected{% endif %}>{{ group.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <div class="mb-3">
                 <label for="assignee" class="form-label">Assignee</label>
                 <select class="form-select" id="assignee" name="assignee">
+                    <option value="">-- Select Assignee --</option>
                     {% for user in assignees %}
                         <option value="{{ user.username }}" {% if user.username == ticket.assignee %}selected{% endif %}>{{ user.username }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="mb-3">
-                <label for="impact" class="form-label">Impact</label>
-                <select class="form-select" id="impact" name="impact" onchange="updatePriority()">
-                    {% for option in impacts %}
-                        <option value="{{ option }}" {% if option == ticket.impact %}selected{% endif %}>{{ option }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="urgency" class="form-label">Urgency</label>
-                <select class="form-select" id="urgency" name="urgency" onchange="updatePriority()">
-                    {% for option in urgencies %}
-                        <option value="{{ option }}" {% if option == ticket.urgency %}selected{% endif %}>{{ option }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="priority" class="form-label">Priority</label>
-                <input type="text" class="form-control" id="priority" name="priority" value="{{ ticket.priority }}" readonly>
-            </div>
+
             <div class="mb-3">
                 <label for="status" class="form-label">Status</label>
-                <select class="form-select" id="status" name="status">
+                <select class="form-select" id="status" name="status" onchange="toggleResolutionFields()">
                     {% for option in statuses %}
                         <option value="{{ option }}" {% if option == ticket.status %}selected{% endif %}>{{ option }}</option>
                     {% endfor %}
                 </select>
             </div>
+
+            <div id="resolutionFields" style="display:none;">
+                <div class="mb-3">
+                    <label for="resolution_code" class="form-label">Resolution Code</label>
+                    <select class="form-select" id="resolution_code" name="resolution_code">
+                        <option value="Solved Permanently">Solved Permanently</option>
+                        <option value="Solved (Work around)">Solved (Work around)</option>
+                        <option value="Not solved">Not solved</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="resolution_notes" class="form-label">Resolution Notes</label>
+                    <textarea class="form-control" id="resolution_notes" name="resolution_notes"></textarea>
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-success w-100">Update Ticket</button>
         </form>
         <div class="text-center mt-3">
             <a href="/tickets" class="btn btn-link">Back to Tickets</a>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
